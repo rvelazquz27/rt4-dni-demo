@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agenda tu consulta</title>
+<style>
+  :root{--a:#0f6e56;--a2:#e1f5ee;--t:#1f2a2a;--m:#5f6b6b;--b:#dfe7e5}
+  *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--t);background:#f7faf9}
+  header{background:#fff;border-bottom:1px solid var(--b);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .brand{font-weight:600;font-size:18px;color:var(--a)}
+  .phone{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--t);background:var(--a2);border:1px solid #9fe1cb;border-radius:10px;padding:8px 14px}
+  .phone b{font-size:20px;letter-spacing:.5px;color:var(--a)}
+  main{max-width:960px;margin:0 auto;padding:28px 20px}
+  .hero{background:#fff;border:1px solid var(--b);border-radius:14px;padding:28px}
+  h1{margin:0 0 8px;font-size:28px}p{color:var(--m);line-height:1.6}
+  .cta{display:inline-block;margin-top:14px;background:var(--a);color:#fff;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:20px}
+  .card{background:#fff;border:1px solid var(--b);border-radius:12px;padding:18px;cursor:pointer}
+  .card:hover{border-color:var(--a)}
+  .debug{margin-top:24px;font-size:12px;color:var(--m);background:#fff;border:1px dashed var(--b);border-radius:10px;padding:12px;word-break:break-all}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand" id="brand">Clínica Demo</div>
+  <a class="phone" id="phoneLink" href="#"><span>Llámanos</span><b id="phone">55 0000 0000</b></a>
+</header>
+<main>
+  <section class="hero">
+    <h1 id="title">Agenda tu consulta con un especialista</h1>
+    <p>Atención en tu clínica más cercana. Llámanos y un asesor te ayuda a agendar tu cita en minutos.</p>
+    <a class="cta" id="cta" href="#">Llamar ahora: <span id="phone2">55 0000 0000</span></a>
+  </section>
+  <div class="grid">
+    <div class="card" data-page="/especialidades/dermatologia"><b>Dermatología</b><p>Valoración y seguimiento.</p></div>
+    <div class="card" data-page="/especialidades/pediatria"><b>Pediatría</b><p>Consulta general y vacunas.</p></div>
+    <div class="card" data-page="/precios"><b>Precios</b><p>Consulta desde $500 MXN.</p></div>
+    <div class="card" data-page="/sucursales"><b>Sucursales</b><p>Encuentra tu clínica.</p></div>
+  </div>
+  <div class="debug" id="debug">Asignando número…</div>
+</main>
+<script>
+(async function(){
+  const qs = new URLSearchParams(location.search);
+  const KEY = 'rt4_dni_session';
+  let sessionId = null;
+  try { sessionId = sessionStorage.getItem(KEY); } catch(e){}
+  if (qs.get('new') === '1') sessionId = null;
+  if (!sessionId) { sessionId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()); try{sessionStorage.setItem(KEY,sessionId)}catch(e){} }
+
+  try { const c = await (await fetch('/api/config')).json(); document.getElementById('brand').textContent = c.brand; document.title = c.brand + ' | Agenda tu consulta'; } catch(e){}
+
+  const payload = { sessionId, page: location.pathname, referrer: document.referrer, landing: location.href };
+  ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid'].forEach(k => { if (qs.get(k)) payload[k] = qs.get(k); });
+
+  async function assign(){
+    const r = await fetch('/api/dni/assign', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const j = await r.json();
+    ['phone','phone2'].forEach(id => document.getElementById(id).textContent = j.display);
+    ['phoneLink','cta'].forEach(id => document.getElementById(id).href = 'tel:' + j.tel);
+    document.getElementById('debug').textContent =
+      'Demo DNI · sesión ' + sessionId.slice(0,8) + ' · número asignado ' + j.display +
+      ' · campaña: ' + (payload.utm_campaign || '(directo)') + ' · gclid: ' + (payload.gclid ? 'sí' : 'no') +
+      ' · vence ' + new Date(j.expiresAt).toLocaleTimeString();
+    payload.page = undefined;
+  }
+  await assign();
+  setInterval(assign, 60000); // mantiene la reserva mientras la página esté abierta
+
+  document.querySelectorAll('.card').forEach(el => el.addEventListener('click', () => {
+    fetch('/api/dni/pageview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, page: el.dataset.page }) });
+    el.style.borderColor = '#0f6e56';
+  }));
+})();
+</script>
+</body>
+</html>

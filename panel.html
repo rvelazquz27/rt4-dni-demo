@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel DNI · RT4</title>
+<style>
+  :root{--a:#0f6e56;--a2:#e1f5ee;--p:#534ab7;--p2:#eeedfe;--t:#1f2a2a;--m:#5f6b6b;--b:#dfe7e5;--w:#854f0b;--w2:#faeeda}
+  *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--t);background:#f7faf9;font-size:14px}
+  header{background:#fff;border-bottom:1px solid var(--b);padding:12px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  h1{font-size:17px;margin:0}h2{font-size:14px;margin:0 0 10px;color:var(--m);font-weight:600}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .box{background:#fff;border:1px solid var(--b);border-radius:12px;padding:14px;min-width:0}
+  .did{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--b);border-radius:10px;padding:10px;margin-bottom:8px}
+  .pill{border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600}
+  .free{background:#eef1f0;color:var(--m)}.res{background:var(--a2);color:var(--a)}.warn{background:var(--w2);color:var(--w)}.mode{background:var(--p2);color:var(--p)}
+  table{width:100%;border-collapse:collapse;font-size:12px}td,th{text-align:left;padding:6px 4px;border-bottom:1px solid var(--b);vertical-align:top}
+  th{color:var(--m);font-weight:600}
+  .ev{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;border-bottom:1px solid var(--b);padding:6px 0;word-break:break-all}
+  .ev b{color:var(--p)}.ev.call b{color:var(--a)}.ev.conv b{color:var(--w)}
+  .log{max-height:420px;overflow:auto}
+  button{border:1px solid var(--b);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer}
+  .muted{color:var(--m)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Panel de atribución DNI <span class="muted" id="brand"></span></h1>
+  <div><span class="pill mode" id="modes"></span> <button id="reset">Reiniciar demo</button></div>
+</header>
+<div class="grid">
+  <div class="box"><h2>Pool de números</h2><div id="pool"></div><p class="muted" id="ttl"></p></div>
+  <div class="box"><h2>Llamadas</h2><div id="calls" class="muted">Sin llamadas aún.</div></div>
+  <div class="box"><h2>Sesiones web (pauta capturada)</h2><div id="sessions" class="muted">Sin visitas aún.</div></div>
+  <div class="box"><h2>Eventos en tiempo real (webhooks)</h2><div id="events" class="log"></div></div>
+</div>
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const t = iso => new Date(iso).toLocaleTimeString();
+async function load(){
+  let s; try { s = await (await fetch('/api/state')).json(); } catch(e){ return; }
+  document.getElementById('brand').textContent = '· ' + s.brand;
+  document.getElementById('modes').textContent = 'Google: ' + s.modes.google + ' · Meta: ' + s.modes.meta;
+  document.getElementById('ttl').textContent = 'Reserva por sesión: ' + s.ttlMin + ' min. Si el pool se llena, la reserva más antigua pierde su número.';
+  document.getElementById('pool').innerHTML = s.pool.map(p =>
+    '<div class="did"><div><b>' + esc(p.display) + '</b><div class="muted">' +
+    (p.status === 'reservado' ? 'Sesión ' + esc(p.sessionId.slice(0,8)) + ' · ' + esc(p.utm_campaign || '(directo)') + ' · vence en ' + Math.ceil(p.expiresInSec/60) + ' min' : 'Disponible') +
+    '</div></div><span class="pill ' + (p.status === 'reservado' ? 'res' : 'free') + '">' + p.status + '</span></div>').join('');
+  document.getElementById('sessions').innerHTML = s.sessions.length ? '<table><tr><th>Sesión</th><th>Fuente</th><th>Campaña</th><th>GCLID</th><th>DID</th></tr>' +
+    s.sessions.map(x => '<tr><td>' + esc(x.sessionId.slice(0,8)) + (x.displaced ? ' <span class="pill warn">desplazada</span>' : '') + '</td><td>' + esc(x.utm_source||'-') + '</td><td>' + esc(x.utm_campaign||'-') + '</td><td>' + (x.gclid ? esc(x.gclid.slice(0,12)) + '…' : '-') + '</td><td>' + esc(x.did||'-') + '</td></tr>').join('') + '</table>' : 'Sin visitas aún.';
+  document.getElementById('calls').innerHTML = s.calls.length ? '<table><tr><th>Hora</th><th>ANI</th><th>Atribuida</th><th>Campaña</th><th>Conversión</th></tr>' +
+    s.calls.map(c => '<tr><td>' + t(c.receivedAt) + '</td><td>' + esc(c.ani) + '</td><td>' + (c.attributed ? '<span class="pill res">sí</span>' : '<span class="pill warn">no</span>') + '</td><td>' + esc(c.attribution?.utm_campaign || '-') + '</td><td>' + esc(c.conversion ? c.conversion.outcome : '-') + '</td></tr>').join('') + '</table>' : 'Sin llamadas aún.';
+  document.getElementById('events').innerHTML = s.events.map(e =>
+    '<div class="ev ' + (e.type.startsWith('call') ? 'call' : e.type.startsWith('conversion') ? 'conv' : '') + '">' + t(e.ts) + ' <b>' + esc(e.type) + '</b> ' + esc(JSON.stringify(e.data)) + '</div>').join('');
+}
+document.getElementById('reset').onclick = async () => { if (confirm('¿Borrar sesiones, llamadas y eventos?')) { await fetch('/api/reset', {method:'POST'}); load(); } };
+load(); setInterval(load, 2000);
+</script>
+</body>
+</html>

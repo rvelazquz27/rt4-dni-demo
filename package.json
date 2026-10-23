@@ -1,0 +1,15 @@
+{
+  "name": "rt4-dni-demo",
+  "version": "1.0.0",
+  "description": "RT4 - Demo de atribución DNI + NICE CXone (screen pop, webhooks, conversiones offline Google Ads / Meta CAPI)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Contexto de llamada</title>
+<style>
+  :root{--a:#0f6e56;--a2:#e1f5ee;--t:#1f2a2a;--m:#5f6b6b;--b:#dfe7e5;--w:#854f0b;--w2:#faeeda}
+  *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--t);background:#fff;font-size:14px}
+  .wrap{padding:14px}
+  .head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  h2{margin:0;font-size:16px}
+  .pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600}
+  .ok{background:var(--a2);color:var(--a)}.no{background:var(--w2);color:var(--w)}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  td{padding:6px 4px;border-bottom:1px solid var(--b);vertical-align:top}
+  td:first-child{color:var(--m);width:38%}
+  .pages{margin:4px 0 0;padding-left:16px;color:var(--m)}
+  .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  button{border:0;border-radius:8px;padding:10px 14px;font-weight:600;cursor:pointer}
+  .b1{background:var(--a);color:#fff}.b2{background:#eef1f0;color:var(--t)}
+  pre{background:#f6f8f8;border:1px solid var(--b);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto}
+  .muted{color:var(--m)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><h2>Contexto de la llamada</h2><span id="badge" class="pill no">Esperando llamada…</span></div>
+  <div id="body" class="muted" style="margin-top:10px">Cuando entre una llamada al número de la campaña, aquí aparece de qué anuncio viene.</div>
+  <div class="actions" id="actions" style="display:none">
+    <button class="b1" id="btnCita">Cita agendada → enviar conversión</button>
+    <button class="b2" id="btnNo">Sin cita</button>
+  </div>
+  <div id="result"></div>
+</div>
+<script>
+const qs = new URLSearchParams(location.search);
+let contactId = qs.get('contactId');
+let shown = null;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function render(c){
+  if (!c) return;
+  if (shown === c.contactId + JSON.stringify(c.conversion)) return;
+  shown = c.contactId + JSON.stringify(c.conversion);
+  const a = c.attribution;
+  const badge = document.getElementById('badge');
+  badge.className = 'pill ' + (c.attributed ? 'ok' : 'no');
+  badge.textContent = c.attributed ? 'Llamada atribuida' : 'Sin atribución';
+  let html = '<table>' +
+    '<tr><td>Contact ID</td><td>' + esc(c.contactId) + '</td></tr>' +
+    '<tr><td>Llama desde (ANI)</td><td>' + esc(c.ani) + '</td></tr>' +
+    '<tr><td>Número marcado (DNIS)</td><td>' + esc(c.dnis) + '</td></tr>';
+  if (a) {
+    html += '<tr><td>Origen / medio</td><td>' + esc(a.utm_source || '-') + ' / ' + esc(a.utm_medium || '-') + '</td></tr>' +
+      '<tr><td>Campaña</td><td><b>' + esc(a.utm_campaign || '-') + '</b></td></tr>' +
+      '<tr><td>Término / anuncio</td><td>' + esc(a.utm_term || '-') + ' / ' + esc(a.utm_content || '-') + '</td></tr>' +
+      '<tr><td>GCLID</td><td>' + (a.gclid ? esc(a.gclid.slice(0,24)) + '…' : '-') + '</td></tr>' +
+      '<tr><td>Páginas vistas</td><td><ul class="pages">' + (a.pages||[]).map(p => '<li>' + esc(p.page) + '</li>').join('') + '</ul></td></tr>';
+  } else {
+    html += '<tr><td>Atribución</td><td>No hay sesión web vigente para este número (llamada directa o reserva vencida).</td></tr>';
+  }
+  html += '</table>';
+  document.getElementById('body').innerHTML = html;
+  document.getElementById('body').classList.remove('muted');
+  document.getElementById('actions').style.display = c.conversion ? 'none' : 'flex';
+  document.getElementById('result').innerHTML = c.conversion ? resultHtml(c.conversion) : '';
+}
+
+function resultHtml(conv){
+  if (conv.outcome !== 'cita_agendada') return '<p class="muted">Disposición registrada: sin cita. No se envía conversión.</p>';
+  const g = conv.google || {}, m = conv.meta || {};
+  return '<p><b>Conversión enviada</b> · Google: ' + esc(g.skipped ? 'omitida (sin gclid)' : (g.mode||'') + ' ' + (g.status||'')) +
+    ' · Meta: ' + esc((m.mode||'') + ' ' + (m.status||'')) + '</p>' +
+    '<pre>' + esc(JSON.stringify({ google_request: g.request, meta_request: m.request }, null, 2)) + '</pre>';
+}
+
+async function load(){
+  try {
+    const url = contactId ? '/api/calls/' + encodeURIComponent(contactId) : '/api/calls/latest';
+    const r = await fetch(url);
+    if (r.ok) { const c = await r.json(); if (c) { if (!contactId) contactId = c.contactId; render(c); } }
+  } catch(e){}
+}
+async function send(outcome){
+  document.getElementById('actions').style.display = 'none';
+  document.getElementById('result').innerHTML = '<p class="muted">Enviando…</p>';
+  await fetch('/api/conversion', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contactId, outcome }) });
+  shown = null; load();
+}
+document.getElementById('btnCita').onclick = () => send('cita_agendada');
+document.getElementById('btnNo').onclick = () => send('sin_cita');
+
+// Modo Custom Workspace (sin contactId): sigue la última llamada
+load();
+setInterval(() => { if (!qs.get('contactId')) contactId = null; load(); }, 2000);
+</script>
+</body>
+</html>
