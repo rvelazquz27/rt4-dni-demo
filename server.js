@@ -10,7 +10,7 @@ const path = require('path');
 const app = express();
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
 // ---------------- Configuración (variables de entorno) ----------------
 const CFG = {
@@ -56,7 +56,7 @@ const now = () => Date.now();
 const last10 = n => String(n || '').replace(/\D/g, '').slice(-10);
 const fmtDid = did => {
   const d = last10(did);
-  return d.length === 10 ? `${d.slice(0, 2)} ${d.slice(2, 6)} ${d.slice(6)}` : did;
+  return d.length !== 10 ? did : (/^(55|33|81)/.test(d) ? `${d.slice(0, 2)} ${d.slice(2, 6)} ${d.slice(6)}` : `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`);
 };
 const sha256 = v => crypto.createHash('sha256').update(String(v).trim().toLowerCase()).digest('hex');
 
