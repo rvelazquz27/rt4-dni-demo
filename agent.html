@@ -70,7 +70,7 @@ function render(c){
 function resultHtml(conv){
   if (conv.outcome !== 'cita_agendada') return '<p class="muted">Disposición registrada: sin cita. No se envía conversión.</p>';
   const g = conv.google || {}, m = conv.meta || {};
-  return '<p><b>Conversión enviada</b> · Google: ' + esc(g.skipped ? 'omitida (sin gclid)' : (g.mode||'') + ' ' + (g.status||'')) +
+  return '<p><b>Conversión enviada</b> · Google: ' + esc(g.skipped ? 'omitida (sin gclid)' : (g.api ? g.api + ' · ' : '') + (g.mode||'') + ' ' + (g.status||'')) +
     ' · Meta: ' + esc((m.mode||'') + ' ' + (m.status||'')) + '</p>' +
     '<pre>' + esc(JSON.stringify({ google_request: g.request, meta_request: m.request }, null, 2)) + '</pre>';
 }

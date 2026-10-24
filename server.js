@@ -22,6 +22,10 @@ const CFG = {
   webhookForwardUrl: process.env.WEBHOOK_FORWARD_URL || '', // opcional: reenviar call.received a CRM / webhook.site
   google: {
     mode: process.env.GOOGLE_MODE || 'mock', // mock | validate | live
+    // datamanager = Data Manager API (ruta vigente para integraciones nuevas)
+    // ads = Google Ads API uploadClickConversions (solo integraciones existentes / allowlist)
+    api: (process.env.GOOGLE_API || 'datamanager').toLowerCase(),
+    eventSource: process.env.GOOGLE_EVENT_SOURCE || 'CALL',
     apiVersion: process.env.GOOGLE_ADS_API_VERSION || '', // verificar versión vigente
     customerId: (process.env.GOOGLE_ADS_CUSTOMER_ID || '1234567890').replace(/-/g, ''),
     loginCustomerId: (process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || '').replace(/-/g, ''),
@@ -222,6 +226,50 @@ async function googleAccessToken() {
 }
 
 async function sendGoogle(call) {
+  return CFG.google.api === 'ads' ? sendGoogleAds(call) : sendGoogleDataManager(call);
+}
+
+// Data Manager API: POST https://datamanager.googleapis.com/v1/events:ingest
+// Scope OAuth: https://www.googleapis.com/auth/datamanager
+async function sendGoogleDataManager(call) {
+  const g = CFG.google;
+  const gclid = call.attribution?.gclid;
+  const url = 'https://datamanager.googleapis.com/v1/events:ingest';
+  const destination = {
+    operatingAccount: { accountType: 'GOOGLE_ADS', accountId: g.customerId },
+    productDestinationId: String(g.conversionActionId)
+  };
+  if (g.loginCustomerId) destination.loginAccount = { accountType: 'GOOGLE_ADS', accountId: g.loginCustomerId };
+  const body = {
+    destinations: [destination],
+    encoding: 'HEX',
+    consent: { adUserData: 'CONSENT_GRANTED', adPersonalization: 'CONSENT_GRANTED' },
+    events: [{
+      adIdentifiers: { gclid: gclid || '(sin gclid)' },
+      conversionValue: CFG.conversionValue,
+      currency: CFG.currency,
+      eventTimestamp: googleDateTime().replace(' ', 'T'),
+      transactionId: `call-${call.contactId}`,
+      eventSource: g.eventSource
+    }],
+    validateOnly: g.mode !== 'live'
+  };
+  if (!gclid) return { api: 'datamanager', mode: g.mode, skipped: true, reason: 'La sesión no trae gclid', url, request: body };
+  if (g.mode === 'mock') {
+    return { api: 'datamanager', mode: 'mock', url, request: body, response: { requestId: 'mock-' + Date.now() }, note: 'Payload real; envío simulado' };
+  }
+  const token = await googleAccessToken();
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body)
+  });
+  const response = await r.json().catch(() => ({}));
+  return { api: 'datamanager', mode: g.mode, url, status: r.status, request: body, response };
+}
+
+// Google Ads API uploadClickConversions (limitado a integraciones existentes)
+async function sendGoogleAds(call) {
   const g = CFG.google;
   const gclid = call.attribution?.gclid;
   const url = `https://googleads.googleapis.com/${g.apiVersion || '{VERSION}'}/customers/${g.customerId}:uploadClickConversions`;
@@ -248,7 +296,7 @@ async function sendGoogle(call) {
   const headers = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
-    'developer-token': g.developerToken
+    'developer-token': g.developerToken || 'cloud-managed'
   };
   if (g.loginCustomerId) headers['login-customer-id'] = g.loginCustomerId;
   const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -309,7 +357,7 @@ app.get('/api/state', (req, res) => {
   res.json({
     brand: CFG.brand,
     ttlMin: CFG.ttlMin,
-    modes: { google: CFG.google.mode, meta: CFG.meta.mode },
+    modes: { google: CFG.google.mode, googleApi: CFG.google.api, meta: CFG.meta.mode },
     pool: CFG.pool.map(did => {
       const r = state.reservations[did];
       return {
