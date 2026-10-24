@@ -25,7 +25,7 @@ const CFG = {
     // datamanager = Data Manager API (ruta vigente para integraciones nuevas)
     // ads = Google Ads API uploadClickConversions (solo integraciones existentes / allowlist)
     api: (process.env.GOOGLE_API || 'datamanager').toLowerCase(),
-    eventSource: process.env.GOOGLE_EVENT_SOURCE || 'CALL',
+    eventSource: process.env.GOOGLE_EVENT_SOURCE || 'PHONE', // WEB | APP | IN_STORE | PHONE | MESSAGE | OTHER
     apiVersion: process.env.GOOGLE_ADS_API_VERSION || '', // verificar versión vigente
     customerId: (process.env.GOOGLE_ADS_CUSTOMER_ID || '1234567890').replace(/-/g, ''),
     loginCustomerId: (process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || '').replace(/-/g, ''),
