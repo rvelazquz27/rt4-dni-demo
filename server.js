@@ -384,6 +384,10 @@ app.post('/api/reset', (req, res) => {
 
 app.get('/healthz', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
+// Rutas de contenido (/especialidades/*, /precios, /sucursales, etc.) sirven la landing,
+// para que los vínculos a sitios de Google Ads no den 404 ("Destino no operativo").
+app.get(/^\/(?!api\/).*/, (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+
 app.listen(CFG.port, () => {
   console.log(`RT4 DNI demo escuchando en :${CFG.port} | pool=${CFG.pool.join(',')} | google=${CFG.google.mode} meta=${CFG.meta.mode}`);
 });
