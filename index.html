@@ -4,42 +4,146 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Agenda tu consulta</title>
+<meta name="description" content="Agenda tu consulta con un especialista. Atención en Ciudad de México.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{--a:#0f6e56;--a2:#e1f5ee;--t:#1f2a2a;--m:#5f6b6b;--b:#dfe7e5}
-  *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--t);background:#f7faf9}
-  header{background:#fff;border-bottom:1px solid var(--b);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-  .brand{font-weight:600;font-size:18px;color:var(--a)}
-  .phone{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--t);background:var(--a2);border:1px solid #9fe1cb;border-radius:10px;padding:8px 14px}
-  .phone b{font-size:20px;letter-spacing:.5px;color:var(--a)}
-  main{max-width:960px;margin:0 auto;padding:28px 20px}
-  .hero{background:#fff;border:1px solid var(--b);border-radius:14px;padding:28px}
-  h1{margin:0 0 8px;font-size:28px}p{color:var(--m);line-height:1.6}
-  .cta{display:inline-block;margin-top:14px;background:var(--a);color:#fff;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:600}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:20px}
-  .card{background:#fff;border:1px solid var(--b);border-radius:12px;padding:18px;cursor:pointer}
-  .card:hover{border-color:var(--a)}
-  .debug{margin-top:24px;font-size:12px;color:var(--m);background:#fff;border:1px dashed var(--b);border-radius:10px;padding:12px;word-break:break-all}
+  :root{
+    --ink:#0b1f33; --muted:#5b6b7b; --line:#e6ebf0; --bg:#ffffff; --soft:#f5f8fa;
+    --accent:#0e7c66; --accent-ink:#ffffff; --accent-soft:#e7f4f0;
+  }
+  *{box-sizing:border-box;margin:0}
+  html{-webkit-text-size-adjust:100%}
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg);line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+  /* Header */
+  header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.92);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid var(--line)}
+  .bar{display:flex;align-items:center;justify-content:space-between;height:64px;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em;font-size:17px}
+  .mark{width:28px;height:28px;border-radius:8px;background:var(--accent);display:grid;place-items:center}
+  .mark::before,.mark::after{content:"";position:absolute;background:#fff;border-radius:2px}
+  .mark{position:relative}
+  .mark::before{width:12px;height:3px}
+  .mark::after{width:3px;height:12px}
+  .phone{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;white-space:nowrap}
+  .phone svg{flex:none}
+  .phone .lbl{color:var(--muted);font-weight:500}
+  @media(max-width:520px){.phone .lbl{display:none}}
+
+  /* Hero */
+  .hero{padding:72px 20px 56px}
+  .eyebrow{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:6px 12px;border-radius:999px;margin-bottom:20px}
+  h1{font-size:clamp(32px,5vw,52px);line-height:1.08;letter-spacing:-.025em;font-weight:700;max-width:760px}
+  .lead{margin-top:18px;font-size:clamp(16px,2vw,19px);color:var(--muted);max-width:600px}
+  .actions{margin-top:32px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .cta{display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:var(--accent-ink);font-weight:600;font-size:17px;padding:16px 24px;border-radius:12px;box-shadow:0 6px 20px rgba(14,124,102,.22);transition:transform .15s ease}
+  .cta:active{transform:scale(.98)}
+  .cta b{font-weight:700;letter-spacing:.02em}
+  .note{font-size:14px;color:var(--muted)}
+
+  /* Trust strip */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .stat{padding:24px 20px}
+  .stat + .stat{border-left:1px solid var(--line)}
+  .stat strong{display:block;font-size:24px;letter-spacing:-.02em}
+  .stat span{font-size:14px;color:var(--muted)}
+  @media(max-width:620px){.stats{grid-template-columns:1fr}.stat + .stat{border-left:0;border-top:1px solid var(--line)}}
+
+  /* Specialties */
+  section.block{padding:64px 20px}
+  h2{font-size:clamp(24px,3vw,30px);letter-spacing:-.02em}
+  .sub{color:var(--muted);margin-top:6px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:28px}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:22px;cursor:pointer;transition:border-color .15s ease, box-shadow .15s ease}
+  .card:hover{border-color:#cfd8e0;box-shadow:0 8px 24px rgba(11,31,51,.06)}
+  .card.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .ico{width:40px;height:40px;border-radius:10px;background:var(--soft);display:grid;place-items:center;margin-bottom:16px;color:var(--accent)}
+  .card b{display:block;font-size:17px}
+  .card p{color:var(--muted);font-size:14px;margin-top:4px}
+  .card .go{margin-top:14px;font-size:14px;font-weight:600;color:var(--accent)}
+
+  /* Closing band */
+  .band{background:var(--ink);color:#fff;border-radius:20px;padding:40px;display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between}
+  .band h3{font-size:clamp(20px,2.6vw,26px);letter-spacing:-.02em;max-width:520px}
+  .band .cta{background:#fff;color:var(--ink);box-shadow:none}
+  @media(max-width:520px){.band{padding:28px}}
+
+  footer{padding:40px 0 28px;color:var(--muted);font-size:13px}
+  .debug{margin-top:14px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#8a98a6;word-break:break-all}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand" id="brand">Clínica Demo</div>
-  <a class="phone" id="phoneLink" href="#"><span>Llámanos</span><b id="phone">55 0000 0000</b></a>
-</header>
-<main>
-  <section class="hero">
-    <h1 id="title">Agenda tu consulta con un especialista</h1>
-    <p>Atención en tu clínica más cercana. Llámanos y un asesor te ayuda a agendar tu cita en minutos.</p>
-    <a class="cta" id="cta" href="#">Llamar ahora: <span id="phone2">55 0000 0000</span></a>
-  </section>
-  <div class="grid">
-    <div class="card" data-page="/especialidades/dermatologia"><b>Dermatología</b><p>Valoración y seguimiento.</p></div>
-    <div class="card" data-page="/especialidades/pediatria"><b>Pediatría</b><p>Consulta general y vacunas.</p></div>
-    <div class="card" data-page="/precios"><b>Precios</b><p>Consulta desde $500 MXN.</p></div>
-    <div class="card" data-page="/sucursales"><b>Sucursales</b><p>Encuentra tu clínica.</p></div>
+  <div class="wrap bar">
+    <a class="brand" href="#"><span class="mark" aria-hidden="true"></span><span id="brand">Clínica Demo</span></a>
+    <a class="phone" id="phoneLink" href="#" aria-label="Llamar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+      <span class="lbl">Llámanos</span><b id="phone">55 0000 0000</b>
+    </a>
   </div>
-  <div class="debug" id="debug">Asignando número…</div>
+</header>
+
+<main>
+  <section class="wrap hero">
+    <span class="eyebrow">Ciudad de México · Citas el mismo día</span>
+    <h1 id="title">Tu consulta con un especialista, agendada en una llamada.</h1>
+    <p class="lead">Un asesor te ayuda a elegir especialidad, sucursal y horario en menos de 5 minutos.</p>
+    <div class="actions">
+      <a class="cta" id="cta" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+        Llamar ahora <b id="phone2">55 0000 0000</b>
+      </a>
+      <span class="note">Lunes a sábado · 8:00 a 20:00</span>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><strong>+20</strong><span>especialidades médicas</span></div>
+      <div class="stat"><strong>12</strong><span>sucursales en CDMX</span></div>
+      <div class="stat"><strong>Desde $500</strong><span>consulta de especialidad</span></div>
+    </div>
+  </div>
+
+  <section class="wrap block">
+    <h2>¿Qué especialidad buscas?</h2>
+    <p class="sub">Elige una opción y llámanos; tu asesor ya sabrá en qué te interesa.</p>
+    <div class="grid">
+      <div class="card" data-page="/especialidades/dermatologia">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg></div>
+        <b>Dermatología</b><p>Valoración, acné, lunares y seguimiento.</p><div class="go">Ver detalle →</div>
+      </div>
+      <div class="card" data-page="/especialidades/pediatria">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg></div>
+        <b>Pediatría</b><p>Consulta general, control de niño sano y vacunas.</p><div class="go">Ver detalle →</div>
+      </div>
+      <div class="card" data-page="/precios">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <b>Precios</b><p>Consulta de especialidad desde $500 MXN.</p><div class="go">Ver detalle →</div>
+      </div>
+      <div class="card" data-page="/sucursales">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div>
+        <b>Sucursales</b><p>Encuentra la clínica más cercana a ti.</p><div class="go">Ver detalle →</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" style="padding-bottom:24px">
+    <div class="band">
+      <h3>¿Listo para agendar? Un asesor te atiende ahora mismo.</h3>
+      <a class="cta" id="cta2" href="#">Llamar <b id="phone3">55 0000 0000</b></a>
+    </div>
+  </section>
 </main>
+
+<footer class="wrap">
+  <div>© <span id="brand2">Clínica Demo</span> · Sitio de demostración</div>
+  <div class="debug" id="debug">Asignando número…</div>
+</footer>
+
 <script>
 (async function(){
   const qs = new URLSearchParams(location.search);
@@ -49,7 +153,11 @@
   if (qs.get('new') === '1') sessionId = null;
   if (!sessionId) { sessionId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()); try{sessionStorage.setItem(KEY,sessionId)}catch(e){} }
 
-  try { const c = await (await fetch('/api/config')).json(); document.getElementById('brand').textContent = c.brand; document.title = c.brand + ' | Agenda tu consulta'; } catch(e){}
+  try {
+    const c = await (await fetch('/api/config')).json();
+    ['brand','brand2'].forEach(id => document.getElementById(id).textContent = c.brand);
+    document.title = c.brand + ' | Agenda tu consulta';
+  } catch(e){}
 
   const payload = { sessionId, page: location.pathname, referrer: document.referrer, landing: location.href };
   ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid'].forEach(k => { if (qs.get(k)) payload[k] = qs.get(k); });
@@ -57,10 +165,10 @@
   async function assign(){
     const r = await fetch('/api/dni/assign', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const j = await r.json();
-    ['phone','phone2'].forEach(id => document.getElementById(id).textContent = j.display);
-    ['phoneLink','cta'].forEach(id => document.getElementById(id).href = 'tel:' + j.tel);
+    ['phone','phone2','phone3'].forEach(id => document.getElementById(id).textContent = j.display);
+    ['phoneLink','cta','cta2'].forEach(id => document.getElementById(id).href = 'tel:' + j.tel);
     document.getElementById('debug').textContent =
-      'Demo DNI · sesión ' + sessionId.slice(0,8) + ' · número asignado ' + j.display +
+      'Demo DNI · sesión ' + sessionId.slice(0,8) + ' · número ' + j.display +
       ' · campaña: ' + (payload.utm_campaign || '(directo)') + ' · gclid: ' + (payload.gclid ? 'sí' : 'no') +
       ' · vence ' + new Date(j.expiresAt).toLocaleTimeString();
     payload.page = undefined;
@@ -70,7 +178,7 @@
 
   document.querySelectorAll('.card').forEach(el => el.addEventListener('click', () => {
     fetch('/api/dni/pageview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, page: el.dataset.page }) });
-    el.style.borderColor = '#0f6e56';
+    el.classList.add('sel');
   }));
 })();
 </script>
