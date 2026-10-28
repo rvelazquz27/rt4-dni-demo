@@ -236,6 +236,12 @@ app.post('/api/wa/link', (req, res) => {
   res.json({ ref, text, number: CFG.wa.number || null, url: CFG.wa.number ? `https://wa.me/${CFG.wa.number}?text=${encodeURIComponent(text)}` : null });
 });
 
+// WhatsApp usernames (2026): si el paciente ocultó su número, CXone entrega un nombre/ID en lugar del teléfono.
+// Solo se usa como teléfono si son 10-13 dígitos; si no, se guarda como identificador del autor.
+function waPhone(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  return d.length >= 10 && d.length <= 13 ? d : '';
+}
 function linkWhatsApp({ contactId, text, from, ref }) {
   const code = findRef(ref) || findRef(text);
   const r = code && state.waRefs[code];
@@ -243,7 +249,8 @@ function linkWhatsApp({ contactId, text, from, ref }) {
   const prev = state.calls[contactId];
   const conv = {
     contactId, channel: 'whatsapp',
-    ani: from || prev?.ani || '', dnis: 'WhatsApp',
+    ani: waPhone(from) || prev?.ani || '', dnis: 'WhatsApp',
+    authorId: from && !waPhone(from) ? String(from).slice(0, 140) : prev?.authorId || '',
     message: String(text || prev?.message || '').slice(0, 500),
     ref: (s ? code : null) || prev?.ref || null,
     receivedAt: prev?.receivedAt || new Date().toISOString(),
