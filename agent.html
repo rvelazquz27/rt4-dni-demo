@@ -56,6 +56,10 @@
     <button class="b2" id="btnNo">Sin cita</button>
   </div>
   <div id="result"></div>
+  <details id="waLink" style="margin-top:16px"><summary>¿Conversación de WhatsApp? Vincular por código</summary>
+    <div class="attach"><div class="muted" style="margin-bottom:8px">Captura el código que viene en el mensaje del paciente (ej. PC-7K2Q).</div>
+    <input id="refIn2" placeholder="PC-XXXX" maxlength="7"><button class="b2" id="refBtn2">Vincular</button> <span id="refErr2" class="muted"></span></div>
+  </details>
 </div>
 <script>
 const qs = new URLSearchParams(location.search);
@@ -138,6 +142,16 @@ async function attach(){
   shown = null; load();
 }
 document.addEventListener('click', e => { if (e.target && e.target.id === 'refBtn') attach(); });
+document.getElementById('refBtn2').onclick = async () => {
+  const ref = (document.getElementById('refIn2').value || '').trim().toUpperCase();
+  if (!ref) return;
+  const id = 'WA-' + ref;
+  const r = await fetch('/api/wa/attach', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contactId: id, ref }) });
+  if (!r.ok) { document.getElementById('refErr2').textContent = 'Código no encontrado o vencido'; return; }
+  document.getElementById('refErr2').textContent = ''; document.getElementById('refIn2').value = '';
+  document.getElementById('waLink').open = false;
+  contactId = qs.get('contactId') ? contactId : null; shown = null; load();
+};
 
 function stat(r, name, skippedTxt){
   if (!r) return '<span class="pill wait">' + name + ' · —</span>';
