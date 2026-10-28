@@ -57,7 +57,7 @@
   </div>
   <div id="result"></div>
   <details id="waLink" style="margin-top:16px"><summary>¿Conversación de WhatsApp? Vincular por código</summary>
-    <div class="attach"><div class="muted" style="margin-bottom:8px">Captura el código que viene en el mensaje del paciente (ej. PC-7K2Q).</div>
+    <div class="attach"><div class="muted" style="margin-bottom:8px">Captura el código que viene en el mensaje del paciente (formato PC-XXXX).</div>
     <input id="refIn2" placeholder="PC-XXXX" maxlength="7"><button class="b2" id="refBtn2">Vincular</button> <span id="refErr2" class="muted"></span></div>
   </details>
 </div>
@@ -165,7 +165,7 @@ function resultHtml(conv){
   if (conv.outcome !== 'cita_agendada') return '<div class="res"><b>Sin cita</b><div class="muted">Disposición registrada. No se envía conversión a las plataformas.</div></div>';
   const g = conv.google || {}, m = conv.meta || {};
   return '<div class="res"><b>Cita agendada · conversión enviada</b> <span class="muted">' + hm(conv.at) + '</span>' +
-    '<div class="row">' + stat(g, 'Google', 'sin GCLID') + stat(m, 'Meta', 'omitido') + '</div>' +
+    '<div class="row">' + stat(g, 'Google', 'sin GCLID') + stat(m, 'Meta', 'sin datos del paciente') + '</div>' +
     '<details><summary>Ver lo que se envió a Google y Meta</summary><pre>' +
     esc(JSON.stringify({ google_request: g.request, meta_request: m.request }, null, 2)) + '</pre></details></div>';
 }

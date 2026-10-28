@@ -286,6 +286,13 @@ app.post('/api/cxone/wa-received', express.text({ type: () => true, limit: '100k
 app.post('/api/wa/attach', (req, res) => {
   const { contactId, ref, from } = req.body || {};
   if (!contactId || !ref) return res.status(400).json({ error: 'contactId y ref son requeridos' });
+  // Validar antes de tocar nada: un código inexistente no debe crear ni modificar contactos
+  const code = findRef(ref);
+  const r = code && state.waRefs[code];
+  if (!r || r.expiresAt <= now() || !state.sessions[r.sessionId]) {
+    logEvent('wa.attach_not_found', { contactId, ref });
+    return res.status(404).json({ error: 'Código no encontrado o vencido' });
+  }
   const conv = linkWhatsApp({ contactId: String(contactId), ref, from });
   if (!conv.attributed) return res.status(404).json({ error: 'Código no encontrado o vencido', call: conv });
   res.json(conv);
@@ -431,6 +438,8 @@ async function sendMeta(call, phone) {
     }]
   };
   if (m.testEventCode) body.test_event_code = m.testEventCode;
+  // Meta exige al menos un dato del cliente (teléfono, fbc, etc.)
+  if (!userData.ph && !userData.fbc) return { mode: m.mode, skipped: true, reason: 'Sin teléfono ni fbc para Meta', url, request: body };
   if (m.mode === 'mock') {
     return { mode: 'mock', url, request: body, response: { events_received: 1, fbtrace_id: 'MOCK' + Date.now() }, note: 'Payload real; envío simulado' };
   }
