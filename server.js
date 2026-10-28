@@ -160,7 +160,7 @@ async function callReceived(req, res) {
       utm_source: s.utm_source || '', utm_medium: s.utm_medium || '',
       utm_campaign: s.utm_campaign || '', utm_term: s.utm_term || '',
       utm_content: s.utm_content || '', gclid: s.gclid || '', fbclid: s.fbclid || '',
-      landing: s.landing || '', pages: s.pages.slice(-10)
+      landing: s.landing || '', firstSeen: s.createdAt || '', pages: s.pages.slice(-10)
     } : null,
     conversion: null
   };

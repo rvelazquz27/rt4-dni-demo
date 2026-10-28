@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tablero de atribución · RT4</title>
+<style>
+  :root{--ink:#0b1f33;--muted:#5b6b7b;--line:#e6ebf0;--soft:#f5f8fa;--bg:#f7f9fb;--teal:#0e7c66;--teal2:#e7f4f0;
+        --g:#1a73e8;--g2:#e8f0fe;--m:#0866ff;--m2:#e7efff;--o:#8a98a6;--amber:#9a5b00;--amber2:#fff4e0;--red:#b3261e}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg);font-size:14px}
+  header{background:#fff;border-bottom:1px solid var(--line);padding:14px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{margin:0;font-size:18px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:12.5px}
+  .seg{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:3px}
+  .seg button{border:0;background:transparent;padding:7px 12px;border-radius:8px;font-weight:600;cursor:pointer;color:var(--muted);font-family:inherit;font-size:13px}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(11,31,51,.12)}
+  main{padding:20px 24px;max-width:1280px;margin:0 auto}
+  .note{background:var(--amber2);color:var(--amber);border-radius:10px;padding:8px 12px;font-size:12.5px;margin-bottom:14px;display:none}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)} main{padding:16px} header{padding:12px 16px}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+  .kpi .l{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .kpi .v{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .d{font-size:12px;color:var(--muted);margin-top:2px}
+  .row{display:grid;grid-template-columns:1.3fr 1fr;gap:12px;margin-top:12px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+  @media(max-width:1000px){.row,.row3{grid-template-columns:1fr}}
+  h3{margin:0 0 10px;font-size:13.5px}
+  .bar{display:grid;grid-template-columns:150px 1fr 54px;gap:10px;align-items:center;margin:7px 0;font-size:12.5px}
+  .bar .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track{height:10px;background:var(--soft);border-radius:6px;overflow:hidden;display:flex}
+  .track i{display:block;height:100%}
+  .bar .x{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+  .legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+  .funnel .st{display:flex;justify-content:space-between;font-size:12.5px;margin-top:8px}
+  .funnel .tr{height:26px;background:var(--soft);border-radius:7px;overflow:hidden;margin-top:4px}
+  .funnel .tr i{display:block;height:100%;background:var(--teal);border-radius:7px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--muted);font-weight:600;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  .pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600;white-space:nowrap}
+  .pg{background:var(--g2);color:var(--g)}.pm{background:var(--m2);color:var(--m)}.po{background:var(--soft);color:var(--muted)}
+  .ok{background:var(--teal2);color:var(--teal)}.no{background:var(--amber2);color:var(--amber)}.er{background:#fdecea;color:var(--red)}
+  .journey{color:var(--muted);font-size:12px}
+  .pool{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;max-height:330px;overflow:auto}
+  .did{border:1px solid var(--line);border-radius:9px;padding:5px 8px;font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .did b{display:block;font-variant-numeric:tabular-nums}
+  .did.res{border-color:#b9ddd3;background:var(--teal2)}
+  .empty{color:var(--muted);font-size:12.5px;padding:10px 0}
+  footer{color:var(--muted);font-size:11.5px;text-align:center;padding:16px}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Atribución de llamadas a campañas</h1><div class="sub"><span id="brand">Clínica Demo</span> · NICE CXone + DNI · Google Ads &amp; Meta</div></div>
+  <div class="seg"><button id="mLive" class="on">En vivo (demo)</button><button id="mSim">Escenario ilustrativo · 30 días</button></div>
+</header>
+<main>
+  <div class="note" id="note">Escenario ilustrativo con datos simulados para mostrar cómo se vería el tablero con tráfico real. No son datos de ningún cliente.</div>
+  <div class="kpis">
+    <div class="card kpi"><div class="l">Visitas pagadas</div><div class="v" id="kVis">0</div><div class="d" id="kVisD">sesiones con DNI</div></div>
+    <div class="card kpi"><div class="l">Llamadas</div><div class="v" id="kCalls">0</div><div class="d" id="kCallsD">recibidas en CXone</div></div>
+    <div class="card kpi"><div class="l">Atribuidas</div><div class="v" id="kAttr">0%</div><div class="d" id="kAttrD">a campaña y clic</div></div>
+    <div class="card kpi"><div class="l">Citas agendadas</div><div class="v" id="kAppt">0</div><div class="d" id="kApptD">tasa de cita</div></div>
+    <div class="card kpi"><div class="l">Costo por cita</div><div class="v" id="kCpa">—</div><div class="d" id="kCpaD">gasto ÷ citas</div></div>
+    <div class="card kpi"><div class="l">Conversiones enviadas</div><div class="v" id="kConv">0</div><div class="d" id="kConvD">Google · Meta</div></div>
+  </div>
+
+  <div class="row">
+    <div class="card"><h3>Citas y llamadas por campaña</h3><div id="byCamp"></div>
+      <div class="legend"><span style="--c:var(--teal)">Citas</span><span style="--c:#b9ddd3">Llamadas sin cita</span></div></div>
+    <div class="card funnel"><h3>Embudo: del anuncio a la cita</h3><div id="funnel"></div></div>
+  </div>
+
+  <div class="row3">
+    <div class="card"><h3>Citas por plataforma</h3><div id="bySrc"></div></div>
+    <div class="card"><h3>Estado de conversiones offline</h3><div id="convState"></div></div>
+    <div class="card"><h3>Pool de números (DNI)</h3><div class="pool" id="pool"></div><div class="sub" id="poolD" style="margin-top:8px"></div></div>
+  </div>
+
+  <div class="card" style="margin-top:12px"><h3>Últimas llamadas</h3>
+    <table><thead><tr><th>Hora</th><th>Fuente</th><th>Campaña</th><th>Recorrido</th><th>Resultado</th><th>Google</th><th>Meta</th></tr></thead><tbody id="calls"></tbody></table>
+    <div class="empty" id="callsEmpty">Sin llamadas todavía. Abre la landing, llama al número y vuelve aquí.</div>
+  </div>
+</main>
+<footer>Datos en vivo desde el servicio DNI (se actualiza cada 3 s). El costo por cita en vivo usa un gasto de referencia; en producción se toma de Google Ads y Meta.</footer>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = n => Number(n).toLocaleString('es-MX');
+const money = n => '$' + Number(n).toLocaleString('es-MX', {maximumFractionDigits:0});
+const hm = iso => new Date(iso).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+const pageName = p => ({'/especialidades/dermatologia':'Dermatología','/especialidades/pediatria':'Pediatría','/precios':'Precios','/sucursales':'Sucursales'}[p] || null);
+const DEMO_SPEND = 150; // gasto de referencia en vivo (MXN)
+let mode = 'live', timer = null;
+
+function srcOf(a){
+  if (!a) return 'other';
+  const s = (a.utm_source || '').toLowerCase();
+  if (a.gclid || s.includes('google')) return 'google';
+  if (a.fbclid || /facebook|meta|instagram|fb|ig/.test(s)) return 'meta';
+  return 'other';
+}
+const SRC = {google:{n:'Google Ads', p:'pg', c:'var(--g)'}, meta:{n:'Meta Ads', p:'pm', c:'var(--m)'}, other:{n:'Directo / orgánico', p:'po', c:'var(--o)'}};
+const okResp = r => r && !r.skipped && !r.error && (r.mode === 'mock' || (r.status >= 200 && r.status < 300));
+
+function model(s){
+  const sessions = s.sessions || [], calls = s.calls || [];
+  const paid = sessions.filter(x => x.gclid || x.fbclid || /cpc|paid|ads|social/i.test(x.utm_medium || ''));
+  const attr = calls.filter(c => c.attributed);
+  const appts = calls.filter(c => c.conversion && c.conversion.outcome === 'cita_agendada');
+  const camps = {};
+  calls.forEach(c => { const k = c.attribution?.utm_campaign || '(sin campaña)'; camps[k] = camps[k] || {calls:0, appts:0}; camps[k].calls++; if (c.conversion?.outcome === 'cita_agendada') camps[k].appts++; });
+  const bySrc = {google:0, meta:0, other:0};
+  appts.forEach(c => bySrc[c.attributed ? srcOf(c.attribution) : 'other']++);
+  const conv = {gOk:0, gTot:0, mOk:0, mTot:0};
+  appts.forEach(c => { const g = c.conversion.google, m = c.conversion.meta; if (g && !g.skipped){conv.gTot++; if(okResp(g)) conv.gOk++;} if (m){conv.mTot++; if(okResp(m)) conv.mOk++;} });
+  return {visits: paid.length || sessions.length, calls: calls.length, attr: attr.length, appts: appts.length, camps, bySrc, conv,
+          spend: DEMO_SPEND, list: calls.slice(0, 12), pool: s.pool || [], ttl: s.ttlMin};
+}
+
+function simulated(){
+  const camps = {'dermatologia_cdmx':{calls:142, appts:61}, 'pediatria_cdmx':{calls:118, appts:47}, 'checkup_preventivo':{calls:86, appts:29}, 'meta_dermatologia_ig':{calls:97, appts:34}, 'meta_pediatria_fb':{calls:64, appts:19}, '(sin campaña)':{calls:93, appts:22}};
+  const calls = Object.values(camps).reduce((a,b)=>a+b.calls,0), appts = Object.values(camps).reduce((a,b)=>a+b.appts,0);
+  const now = Date.now(), mk = (min, src, camp, pages, out, g, m) => ({receivedAt:new Date(now-min*60000).toISOString(), attributed:src!=='other', attribution:src==='other'?null:{utm_source:src==='google'?'google':'facebook', utm_campaign:camp, gclid:src==='google'?'x':'', fbclid:src==='meta'?'x':'', pages:pages.map(p=>({page:p}))}, conversion: out?{outcome:out, google:g, meta:m}:null});
+  const G = {mode:'live', status:200}, M = {mode:'live', status:200};
+  return {visits: 4820, calls, attr: calls - 93, appts, camps, bySrc:{google:137, meta:53, other:22},
+    conv:{gOk:137, gTot:139, mOk:186, mTot:190}, spend: 68400,
+    list:[mk(4,'google','dermatologia_cdmx',['/especialidades/dermatologia'],'cita_agendada',G,M), mk(11,'meta','meta_pediatria_fb',['/especialidades/pediatria','/precios'],'cita_agendada',{skipped:true},M),
+          mk(17,'other','',[],'sin_cita'), mk(26,'google','checkup_preventivo',['/precios'],'cita_agendada',G,M), mk(33,'google','pediatria_cdmx',['/especialidades/pediatria'],null)],
+    pool: Array.from({length:20},(_,i)=>({display:'55 1234 '+String(i+1).padStart(4,'0'), status: i<13?'reservado':'libre', utm_campaign: i<13?['dermatologia_cdmx','pediatria_cdmx','meta_dermatologia_ig'][i%3]:'', expiresInSec: i<13? 300+i*90:null})), ttl:30};
+}
+
+function draw(d){
+  const pct = (a,b) => b ? Math.round(a*100/b) : 0;
+  document.getElementById('kVis').textContent = fmt(d.visits);
+  document.getElementById('kCalls').textContent = fmt(d.calls);
+  document.getElementById('kCallsD').textContent = pct(d.calls, d.visits) + '% de las visitas llamaron';
+  document.getElementById('kAttr').textContent = pct(d.attr, d.calls) + '%';
+  document.getElementById('kAttrD').textContent = fmt(d.attr) + ' de ' + fmt(d.calls) + ' llamadas';
+  document.getElementById('kAppt').textContent = fmt(d.appts);
+  document.getElementById('kApptD').textContent = 'tasa de cita ' + pct(d.appts, d.calls) + '%';
+  document.getElementById('kCpa').textContent = d.appts ? money(d.spend / d.appts) : '—';
+  document.getElementById('kCpaD').textContent = (mode === 'live' ? 'gasto de referencia ' : 'gasto ') + money(d.spend) + ' MXN';
+  document.getElementById('kConv').textContent = fmt(d.conv.gOk + d.conv.mOk);
+  document.getElementById('kConvD').textContent = 'Google ' + d.conv.gOk + ' · Meta ' + d.conv.mOk;
+
+  const camps = Object.entries(d.camps).sort((a,b)=>b[1].appts-a[1].appts || b[1].calls-a[1].calls);
+  const max = Math.max(1, ...camps.map(c=>c[1].calls));
+  document.getElementById('byCamp').innerHTML = camps.length ? camps.map(([k,v]) =>
+    '<div class="bar"><div class="n" title="'+esc(k)+'">'+esc(k)+'</div><div class="track"><i style="width:'+(v.appts*100/max)+'%;background:var(--teal)"></i><i style="width:'+((v.calls-v.appts)*100/max)+'%;background:#b9ddd3"></i></div><div class="x">'+v.appts+' / '+v.calls+'</div></div>').join('')
+    : '<div class="empty">Sin llamadas todavía.</div>';
+
+  const steps = [['Visitas desde anuncios', d.visits], ['Llamadas', d.calls], ['Atribuidas a campaña', d.attr], ['Citas agendadas', d.appts]];
+  const fmax = Math.max(1, d.visits);
+  document.getElementById('funnel').innerHTML = steps.map(([n,v]) => '<div class="st"><span>'+n+'</span><b>'+fmt(v)+'</b></div><div class="tr"><i style="width:'+Math.max(v?2:0, v*100/fmax)+'%"></i></div>').join('');
+
+  const smax = Math.max(1, ...Object.values(d.bySrc));
+  document.getElementById('bySrc').innerHTML = Object.entries(d.bySrc).map(([k,v]) =>
+    '<div class="bar" style="grid-template-columns:120px 1fr 40px"><div class="n">'+SRC[k].n+'</div><div class="track"><i style="width:'+(v*100/smax)+'%;background:'+SRC[k].c+'"></i></div><div class="x">'+v+'</div></div>').join('');
+
+  const c = d.conv;
+  document.getElementById('convState').innerHTML =
+    '<div class="bar" style="grid-template-columns:120px 1fr 60px"><div class="n">Google · Data Manager</div><div class="track"><i style="width:'+pct(c.gOk,c.gTot||1)+'%;background:var(--g)"></i></div><div class="x">'+c.gOk+'/'+c.gTot+'</div></div>' +
+    '<div class="bar" style="grid-template-columns:120px 1fr 60px"><div class="n">Meta · CAPI</div><div class="track"><i style="width:'+pct(c.mOk,c.mTot||1)+'%;background:var(--m)"></i></div><div class="x">'+c.mOk+'/'+c.mTot+'</div></div>' +
+    '<div class="sub" style="margin-top:8px">Citas devueltas a cada plataforma con respuesta exitosa. Google requiere GCLID; las llamadas sin clic de Google no se envían a Google.</div>';
+
+  document.getElementById('pool').innerHTML = d.pool.map(p => '<div class="did '+(p.status==='reservado'?'res':'')+'"><b>'+esc(p.display)+'</b>'+(p.status==='reservado' ? esc(p.utm_campaign||'(directo)')+' · '+Math.ceil((p.expiresInSec||0)/60)+' min' : '<span class="sub">libre</span>')+'</div>').join('');
+  const used = d.pool.filter(p=>p.status==='reservado').length;
+  document.getElementById('poolD').textContent = used + ' de ' + d.pool.length + ' números en uso · reserva de ' + d.ttl + ' min';
+
+  const tb = document.getElementById('calls');
+  document.getElementById('callsEmpty').style.display = d.list.length ? 'none' : 'block';
+  tb.innerHTML = d.list.map(x => {
+    const s = x.attributed ? srcOf(x.attribution) : 'other';
+    const pages = (x.attribution?.pages || []).map(p=>pageName(p.page)).filter(Boolean);
+    const journey = x.attributed ? ['Anuncio', ...pages, 'Llamada'].join(' → ') : 'Llamada directa';
+    const out = !x.conversion ? '<span class="pill po">En curso</span>' : x.conversion.outcome === 'cita_agendada' ? '<span class="pill ok">Cita agendada</span>' : '<span class="pill no">Sin cita</span>';
+    const st = r => !x.conversion || x.conversion.outcome !== 'cita_agendada' ? '—' : !r ? '—' : r.skipped ? '<span class="pill po">n/a</span>' : okResp(r) ? '<span class="pill ok">✓ '+(r.status||'ok')+'</span>' : '<span class="pill er">✕</span>';
+    return '<tr><td>'+hm(x.receivedAt)+'</td><td><span class="pill '+SRC[s].p+'">'+SRC[s].n+'</span></td><td>'+esc(x.attribution?.utm_campaign || '—')+'</td><td class="journey">'+esc(journey)+'</td><td>'+out+'</td><td>'+st(x.conversion?.google)+'</td><td>'+st(x.conversion?.meta)+'</td></tr>';
+  }).join('');
+}
+
+async function tick(){
+  if (mode !== 'live') return;
+  try { const s = await (await fetch('/api/state')).json(); if (s.brand) document.getElementById('brand').textContent = s.brand; draw(model(s)); } catch(e){}
+}
+function setMode(m){
+  mode = m;
+  document.getElementById('mLive').classList.toggle('on', m === 'live');
+  document.getElementById('mSim').classList.toggle('on', m === 'sim');
+  document.getElementById('note').style.display = m === 'sim' ? 'block' : 'none';
+  if (m === 'sim') draw(simulated()); else tick();
+}
+document.getElementById('mLive').onclick = () => setMode('live');
+document.getElementById('mSim').onclick = () => setMode('sim');
+tick(); setInterval(tick, 3000);
+</script>
+</body>
+</html>
