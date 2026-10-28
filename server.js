@@ -310,6 +310,12 @@ async function sendMeta(call, phone) {
   const userData = {};
   const ph = String(phone || call.ani || '').replace(/\D/g, '');
   if (ph) userData.ph = [sha256(ph.length === 10 ? '52' + ph : ph)];
+  // Click ID de Meta: fbc = fb.1.<ms en que se capturó el fbclid>.<fbclid>
+  const fbclid = call.attribution?.fbclid;
+  if (fbclid) {
+    const seen = Date.parse(call.attribution.firstSeen || '') || Date.now();
+    userData.fbc = `fb.1.${seen}.${fbclid}`;
+  }
   // Solo datos no clínicos. Nunca especialidad, síntomas ni diagnóstico.
   const body = {
     data: [{
