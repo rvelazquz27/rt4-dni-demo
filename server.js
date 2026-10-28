@@ -259,7 +259,11 @@ function linkWhatsApp({ contactId, text, from, ref }) {
 
 // Webhook desde el script digital de Studio (acción REST API). Respuesta plana y pequeña.
 async function waReceived(req, res) {
-  const q = { ...req.query, ...(req.body || {}) };
+  // Studio puede mandar el JSON con otro Content-Type: se acepta texto y se intenta parsear
+  let body = req.body;
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = { text: body }; } }
+  const q = { ...req.query, ...(body || {}) };
+  logEvent('wa.webhook_raw', { contentType: req.get('content-type') || '', keys: Object.keys(q) });
   const contactId = String(q.contactId || q.ContactID || `wa-${Date.now()}`);
   const conv = linkWhatsApp({ contactId, text: q.text || q.message || q.msg || '', from: q.from || q.ani || q.phone || '', ref: q.ref || '' });
   res.json({
@@ -269,7 +273,7 @@ async function waReceived(req, res) {
   });
 }
 app.get('/api/cxone/wa-received', waReceived);
-app.post('/api/cxone/wa-received', waReceived);
+app.post('/api/cxone/wa-received', express.text({ type: () => true, limit: '100kb' }), waReceived);
 
 // Plan B: el asesor captura el código en el pop
 app.post('/api/wa/attach', (req, res) => {
