@@ -43,6 +43,12 @@ const CFG = {
     testEventCode: process.env.META_TEST_EVENT_CODE || '',
     eventName: process.env.META_EVENT_NAME || 'Schedule'
   },
+  wa: {
+    // Número de WhatsApp del canal en CXone (solo dígitos con lada país, ej. 5215512345678)
+    number: String(process.env.WA_NUMBER || '').replace(/\D/g, ''),
+    refPrefix: (process.env.WA_REF_PREFIX || 'PC').toUpperCase(),
+    ttlH: Number(process.env.WA_REF_TTL_H || 72)
+  },
   conversionValue: Number(process.env.CONVERSION_VALUE || 500),
   currency: process.env.CONVERSION_CURRENCY || 'MXN',
   tzOffset: process.env.TZ_OFFSET || '-06:00'
@@ -52,7 +58,8 @@ const CFG = {
 const state = {
   sessions: {},      // sessionId -> sesión web
   reservations: {},  // did -> { sessionId, assignedAt, expiresAt }
-  calls: {},         // contactId -> llamada
+  calls: {},         // contactId -> llamada o conversación de WhatsApp
+  waRefs: {},        // código de referencia -> { sessionId, createdAt, expiresAt }
   events: []         // log de eventos (más reciente primero)
 };
 
@@ -137,6 +144,15 @@ app.post('/api/dni/pageview', (req, res) => {
   res.json({ ok: true });
 });
 
+function attributionOf(s) {
+  return s ? {
+    utm_source: s.utm_source || '', utm_medium: s.utm_medium || '',
+    utm_campaign: s.utm_campaign || '', utm_term: s.utm_term || '',
+    utm_content: s.utm_content || '', gclid: s.gclid || '', fbclid: s.fbclid || '',
+    landing: s.landing || '', firstSeen: s.createdAt || '', pages: s.pages.slice(-10)
+  } : null;
+}
+
 // ---------------- API: CXone Studio (webhook de llamada entrante) ----------------
 // Llamado desde la acción REST API de Studio al entrar la llamada.
 // Respuesta plana y pequeña (límite de 32 KB en CXone).
@@ -156,12 +172,8 @@ async function callReceived(req, res) {
     receivedAt: new Date().toISOString(),
     attributed: Boolean(s),
     sessionId: s ? s.sessionId : null,
-    attribution: s ? {
-      utm_source: s.utm_source || '', utm_medium: s.utm_medium || '',
-      utm_campaign: s.utm_campaign || '', utm_term: s.utm_term || '',
-      utm_content: s.utm_content || '', gclid: s.gclid || '', fbclid: s.fbclid || '',
-      landing: s.landing || '', firstSeen: s.createdAt || '', pages: s.pages.slice(-10)
-    } : null,
+    channel: 'voz',
+    attribution: attributionOf(s),
     conversion: null
   };
   state.calls[contactId] = call;
@@ -189,6 +201,84 @@ async function callReceived(req, res) {
 }
 app.get('/api/cxone/call-received', callReceived);
 app.post('/api/cxone/call-received', callReceived);
+
+
+// ---------------- WhatsApp: código de referencia en el mensaje ----------------
+// La landing genera un código por visita (ej. PC-7K2Q) y lo precarga en el texto de WhatsApp.
+// Cuando el mensaje entra a CXone, el script digital de Studio manda el texto aquí y se liga la visita.
+const REF_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function newRef() {
+  for (;;) {
+    let c = '';
+    for (let i = 0; i < 4; i++) c += REF_CHARS[crypto.randomInt(REF_CHARS.length)];
+    const ref = `${CFG.wa.refPrefix}-${c}`;
+    if (!state.waRefs[ref]) return ref;
+  }
+}
+function findRef(text) {
+  const m = String(text || '').toUpperCase().match(new RegExp(`\\b${CFG.wa.refPrefix}-[${REF_CHARS}]{4}\\b`));
+  return m ? m[0] : null;
+}
+
+app.post('/api/wa/link', (req, res) => {
+  const { sessionId } = req.body || {};
+  const s = state.sessions[sessionId];
+  if (!s) return res.status(404).json({ error: 'session not found' });
+  let ref = s.waRef;
+  const r = ref && state.waRefs[ref];
+  if (!r || r.expiresAt <= now()) {
+    ref = newRef();
+    state.waRefs[ref] = { sessionId, createdAt: now(), expiresAt: now() + CFG.wa.ttlH * 3600 * 1000 };
+    s.waRef = ref;
+    logEvent('wa.ref_created', { ref, sessionId, utm_campaign: s.utm_campaign || '', gclid: s.gclid || '', fbclid: s.fbclid || '' });
+  }
+  const text = `Hola, quiero agendar una cita. Ref: ${ref}`;
+  res.json({ ref, text, number: CFG.wa.number || null, url: CFG.wa.number ? `https://wa.me/${CFG.wa.number}?text=${encodeURIComponent(text)}` : null });
+});
+
+function linkWhatsApp({ contactId, text, from, ref }) {
+  const code = findRef(ref) || findRef(text);
+  const r = code && state.waRefs[code];
+  const s = r && r.expiresAt > now() ? state.sessions[r.sessionId] : null;
+  const prev = state.calls[contactId];
+  const conv = {
+    contactId, channel: 'whatsapp',
+    ani: from || prev?.ani || '', dnis: 'WhatsApp',
+    message: String(text || prev?.message || '').slice(0, 500),
+    ref: (s ? code : null) || prev?.ref || null,
+    receivedAt: prev?.receivedAt || new Date().toISOString(),
+    attributed: Boolean(s) || Boolean(prev?.attributed),
+    sessionId: s ? s.sessionId : prev?.sessionId || null,
+    attribution: s ? attributionOf(s) : prev?.attribution || null,
+    conversion: prev?.conversion || null
+  };
+  state.calls[contactId] = conv;
+  logEvent('wa.received', { contactId, ref: conv.ref, attributed: conv.attributed, utm_campaign: conv.attribution?.utm_campaign || '', gclid: conv.attribution?.gclid || '' });
+  return conv;
+}
+
+// Webhook desde el script digital de Studio (acción REST API). Respuesta plana y pequeña.
+async function waReceived(req, res) {
+  const q = { ...req.query, ...(req.body || {}) };
+  const contactId = String(q.contactId || q.ContactID || `wa-${Date.now()}`);
+  const conv = linkWhatsApp({ contactId, text: q.text || q.message || q.msg || '', from: q.from || q.ani || q.phone || '', ref: q.ref || '' });
+  res.json({
+    attributed: conv.attributed ? 1 : 0, ref: conv.ref || '',
+    utm_source: conv.attribution?.utm_source || '', utm_campaign: conv.attribution?.utm_campaign || '',
+    pop_url: `${req.protocol}://${req.get('host')}/agent.html?contactId=${encodeURIComponent(contactId)}`
+  });
+}
+app.get('/api/cxone/wa-received', waReceived);
+app.post('/api/cxone/wa-received', waReceived);
+
+// Plan B: el asesor captura el código en el pop
+app.post('/api/wa/attach', (req, res) => {
+  const { contactId, ref, from } = req.body || {};
+  if (!contactId || !ref) return res.status(400).json({ error: 'contactId y ref son requeridos' });
+  const conv = linkWhatsApp({ contactId: String(contactId), ref, from });
+  if (!conv.attributed) return res.status(404).json({ error: 'Código no encontrado o vencido', call: conv });
+  res.json(conv);
+});
 
 app.get('/api/calls/latest', (req, res) => {
   const calls = Object.values(state.calls).sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
@@ -249,8 +339,8 @@ async function sendGoogleDataManager(call) {
       conversionValue: CFG.conversionValue,
       currency: CFG.currency,
       eventTimestamp: googleDateTime().replace(' ', 'T'),
-      transactionId: `call-${call.contactId}`,
-      eventSource: g.eventSource
+      transactionId: `${call.channel === 'whatsapp' ? 'wa' : 'call'}-${call.contactId}`,
+      eventSource: call.channel === 'whatsapp' ? 'MESSAGE' : g.eventSource
     }],
     validateOnly: g.mode !== 'live'
   };
@@ -309,7 +399,9 @@ async function sendMeta(call, phone) {
   const url = `https://graph.facebook.com/${m.apiVersion || '{VERSION}'}/${m.pixelId}/events`;
   const userData = {};
   const ph = String(phone || call.ani || '').replace(/\D/g, '');
-  if (ph) userData.ph = [sha256(ph.length === 10 ? '52' + ph : ph)];
+  // México: 10 dígitos → 52 + número; WhatsApp entrega 521 + 10 dígitos → se normaliza a 52 + 10
+  const phNorm = ph.length === 10 ? '52' + ph : (ph.length === 13 && ph.startsWith('521') ? '52' + ph.slice(3) : ph);
+  if (ph) userData.ph = [sha256(phNorm)];
   // Click ID de Meta: fbc = fb.1.<ms en que se capturó el fbclid>.<fbclid>
   const fbclid = call.attribution?.fbclid;
   if (fbclid) {
@@ -321,8 +413,8 @@ async function sendMeta(call, phone) {
     data: [{
       event_name: m.eventName,
       event_time: Math.floor(Date.now() / 1000),
-      event_id: `call-${call.contactId}`,
-      action_source: 'phone_call',
+      event_id: `${call.channel === 'whatsapp' ? 'wa' : 'call'}-${call.contactId}`,
+      action_source: call.channel === 'whatsapp' ? 'chat' : 'phone_call',
       user_data: userData,
       custom_data: { value: CFG.conversionValue, currency: CFG.currency }
     }]
@@ -363,7 +455,7 @@ app.get('/api/state', (req, res) => {
   res.json({
     brand: CFG.brand,
     ttlMin: CFG.ttlMin,
-    modes: { google: CFG.google.mode, googleApi: CFG.google.api, meta: CFG.meta.mode },
+    modes: { google: CFG.google.mode, googleApi: CFG.google.api, meta: CFG.meta.mode, whatsapp: CFG.wa.number ? 'on' : 'off' },
     pool: CFG.pool.map(did => {
       const r = state.reservations[did];
       return {
@@ -383,7 +475,7 @@ app.get('/api/state', (req, res) => {
 app.get('/api/config', (req, res) => res.json({ brand: CFG.brand }));
 
 app.post('/api/reset', (req, res) => {
-  state.sessions = {}; state.reservations = {}; state.calls = {}; state.events = [];
+  state.sessions = {}; state.reservations = {}; state.calls = {}; state.waRefs = {}; state.events = [];
   logEvent('demo.reset', {});
   res.json({ ok: true });
 });

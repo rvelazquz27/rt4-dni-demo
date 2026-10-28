@@ -39,12 +39,17 @@
   summary{cursor:pointer;color:var(--muted);font-size:12px}
   pre{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto}
   .muted{color:var(--muted)}
+  .chan{background:var(--soft);color:var(--ink)}
+  .msg{margin-top:10px;background:var(--teal2);border-radius:10px 10px 10px 2px;padding:9px 12px;font-size:13px}
+  .msg .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:2px}
+  .attach{margin-top:12px;border:1px dashed var(--line);border-radius:12px;padding:12px 14px}
+  .attach input{border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:inherit;width:130px;text-transform:uppercase;margin-right:6px}
   .empty{margin-top:14px;color:var(--muted);border:1px dashed var(--line);border-radius:12px;padding:18px;text-align:center}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="head"><h2>Contexto de la llamada</h2><span id="badge" class="pill wait">Esperando llamada…</span></div>
+  <div class="head"><h2 id="h2">Contexto de la llamada</h2><span><span id="chan" class="pill chan" style="display:none"></span> <span id="badge" class="pill wait">Esperando contacto…</span></span></div>
   <div id="body"><div class="empty">Cuando entre una llamada a un número de campaña, aquí verás de qué anuncio viene y qué vio el paciente.</div></div>
   <div class="actions" id="actions" style="display:none">
     <button class="b1" id="btnCita">Cita agendada → enviar conversión</button>
@@ -55,7 +60,7 @@
 <script>
 const qs = new URLSearchParams(location.search);
 let contactId = qs.get('contactId');
-let shown = null;
+let shown = null, nfShown = false;
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const hm = iso => { try { return new Date(iso).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); } catch(e){ return ''; } };
 const pageName = p => ({'/':'Inicio de la landing','/especialidades/dermatologia':'Dermatología','/especialidades/pediatria':'Pediatría','/precios':'Precios','/sucursales':'Sucursales'}[p] || p);
@@ -69,13 +74,21 @@ function source(a){
 
 function render(c){
   if (!c) return;
-  const key = c.contactId + JSON.stringify(c.conversion);
+  const key = c.contactId + (c.attributed ? 'a' : 'n') + (c.ref || '') + JSON.stringify(c.conversion);
   if (shown === key) return;
   shown = key;
   const a = c.attribution;
+  const wa = c.channel === 'whatsapp';
+  const noun = wa ? 'Conversación' : 'Llamada';
+  document.getElementById('h2').textContent = wa ? 'Contexto de WhatsApp' : 'Contexto de la llamada';
+  const chan = document.getElementById('chan'); chan.style.display = ''; chan.textContent = wa ? 'WhatsApp' : 'Voz';
   const badge = document.getElementById('badge');
   badge.className = 'pill ' + (c.attributed ? 'ok' : 'no');
-  badge.textContent = c.attributed ? '● Llamada atribuida' : '● Sin atribución';
+  badge.textContent = c.attributed ? '● ' + noun + ' atribuida' : '● Sin atribución';
+  const fromLbl = wa ? 'WhatsApp desde' : 'Llama desde (ANI)';
+  const toLbl = wa ? 'Código de visita' : 'Número marcado (DNIS)';
+  const toVal = wa ? (c.ref || '—') : c.dnis;
+  const msgHtml = wa && c.message ? '<div class="msg"><div class="k">Primer mensaje</div>' + esc(c.message) + '</div>' : '';
 
   let html = '';
   if (a) {
@@ -86,16 +99,22 @@ function render(c){
       '<div class="camp">' + esc(a.utm_campaign || 'Sin campaña') + '</div>' +
       '<div class="sub">Término: ' + esc(a.utm_term || '—') + (a.utm_content ? ' · Anuncio: ' + esc(a.utm_content) : '') + '</div></div></div>';
     html += '<div class="grid">' +
-      '<div class="kv"><div class="k">Llama desde (ANI)</div><div class="v">' + esc(c.ani) + '</div></div>' +
-      '<div class="kv"><div class="k">Número marcado (DNIS)</div><div class="v">' + esc(c.dnis) + '</div></div>' +
+      '<div class="kv"><div class="k">' + fromLbl + '</div><div class="v">' + esc(c.ani || '—') + '</div></div>' +
+      '<div class="kv"><div class="k">' + toLbl + '</div><div class="v">' + esc(toVal) + '</div></div>' +
       '<div class="kv"><div class="k">' + clickId[0] + '</div><div class="v">' + esc(String(clickId[1]).slice(0, 28)) + (String(clickId[1]).length > 28 ? '…' : '') + '</div></div>' +
       '<div class="kv"><div class="k">Contact ID</div><div class="v">' + esc(c.contactId) + '</div></div></div>';
     const items = [];
     if (a.firstSeen) items.push({t:a.firstSeen, txt:'Llegó desde el anuncio de <b>' + esc(src.name) + '</b>'});
     (a.pages || []).forEach(p => { if (p.page && p.page !== '/') items.push({t:p.at, txt:'Vio <b>' + esc(pageName(p.page)) + '</b>'}); });
-    items.push({t:c.receivedAt, txt:'<b>Llamó</b> al ' + esc(c.dnis), call:true});
+    items.push(wa ? {t:c.receivedAt, txt:'<b>Escribió por WhatsApp</b> con el código ' + esc(c.ref || ''), call:true} : {t:c.receivedAt, txt:'<b>Llamó</b> al ' + esc(c.dnis), call:true});
+    html += msgHtml;
     html += '<div class="sec">Recorrido del paciente</div><ul class="tl">' +
       items.map(i => '<li' + (i.call ? ' class="call"' : '') + '><span class="t">' + hm(i.t) + '</span>' + i.txt + '</li>').join('') + '</ul>';
+  } else if (wa) {
+    html += '<div class="grid">' +
+      '<div class="kv"><div class="k">WhatsApp desde</div><div class="v">' + esc(c.ani || '—') + '</div></div>' +
+      '<div class="kv"><div class="k">Contact ID</div><div class="v">' + esc(c.contactId) + '</div></div></div>' + msgHtml +
+      attachHtml('El mensaje no trae un código de visita. Si el paciente lo menciona, captúralo aquí.');
   } else {
     html += '<div class="grid">' +
       '<div class="kv"><div class="k">Llama desde (ANI)</div><div class="v">' + esc(c.ani) + '</div></div>' +
@@ -106,6 +125,19 @@ function render(c){
   document.getElementById('actions').style.display = c.conversion ? 'none' : 'flex';
   document.getElementById('result').innerHTML = c.conversion ? resultHtml(c.conversion) : '';
 }
+
+function attachHtml(msg){
+  return '<div class="attach"><div class="muted" style="margin-bottom:8px">' + esc(msg) + '</div>' +
+    '<input id="refIn" placeholder="PC-XXXX" maxlength="7"><button class="b2" id="refBtn">Vincular</button> <span id="refErr" class="muted"></span></div>';
+}
+async function attach(){
+  const ref = (document.getElementById('refIn').value || '').trim();
+  if (!ref) return;
+  const r = await fetch('/api/wa/attach', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contactId, ref, from: qs.get('from') || undefined }) });
+  if (!r.ok) { document.getElementById('refErr').textContent = 'Código no encontrado o vencido'; return; }
+  shown = null; load();
+}
+document.addEventListener('click', e => { if (e.target && e.target.id === 'refBtn') attach(); });
 
 function stat(r, name, skippedTxt){
   if (!r) return '<span class="pill wait">' + name + ' · —</span>';
@@ -129,6 +161,10 @@ async function load(){
     const url = contactId ? '/api/calls/' + encodeURIComponent(contactId) : '/api/calls/latest';
     const r = await fetch(url);
     if (r.ok) { const c = await r.json(); if (c) { if (!contactId) contactId = c.contactId; render(c); } }
+    else if (r.status === 404 && qs.get('contactId') && qs.get('channel') === 'whatsapp' && !nfShown) {
+      nfShown = true;
+      render({ contactId, channel: 'whatsapp', ani: qs.get('from') || '', receivedAt: new Date().toISOString(), attributed: false, attribution: null, conversion: null });
+    }
   } catch(e){}
 }
 async function send(outcome){
